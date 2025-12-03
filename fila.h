@@ -3,29 +3,36 @@
 
 // Nó da fila de prioridade (representa um fã)
 typedef struct NoFila {
-    char nome[60];            // nome do fã
-    int prioridade;           // quanto maior o número, maior a prioridade
-    struct NoFila* prox;      // próximo nó da lista
+    char nome[60];
+    int prioridade;
+    struct NoFila* prox;
 } NoFila;
 
-// Estrutura que guarda apenas o ponteiro para o início da fila
+// Estrutura de uma fila genérica
 typedef struct {
-    NoFila* inicio;           // fã mais prioritário da fila
+    NoFila* inicio;
+    int tamanho;
 } FilaPrioridade;
 
 // Cria e inicializa uma fila vazia
 FilaPrioridade* criar_fila();
 
-// Insere um novo fã na fila, respeitando a ordem de prioridade
-void inserir(FilaPrioridade* f, char nome[], int prioridade);
+// Insere um novo fã na fila (mantendo a ordem de prioridade)
+void inserir(FilaPrioridade* f, const char nome[], int prioridade);
 
-// Remove o fã mais prioritário (início da fila)
-void remover(FilaPrioridade* f);
+// Remove o fã mais prioritário
+NoFila* remover(FilaPrioridade* f);
 
-// Mostra todos os fãs na fila, do mais prioritário para o menos prioritário
-void imprimir(FilaPrioridade* f);
+// Mostra todos os fãs na fila
+void imprimir(FilaPrioridade* f, const char* titulo);
 
-// Procura um fã pelo nome e mostra suas informações, se existir
+// Consulta um fã pelo nome
 void consultar(FilaPrioridade* f, const char* nome);
+
+// Libera toda a memória da fila
+void destruir_fila(FilaPrioridade* f);
+
+// Retorna tamanho atual da fila
+int tamanho_fila(FilaPrioridade* f);
 
 #endif

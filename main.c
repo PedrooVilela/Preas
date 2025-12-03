@@ -3,80 +3,156 @@
 #include <string.h>
 #include "fila.h"
 
-static void mostrar_legenda_prioridade() {
-    printf("\nSugestao de prioridades:\n");
-    printf("  10 - VIP / Camarote\n");
-    printf("   5 - Pista Premium\n");
-    printf("   1 - Ingresso comum\n\n");
+#define CAPACIDADE_MAX 5
+
+typedef struct {
+    FilaPrioridade* pista;
+    FilaPrioridade* premium;
+    FilaPrioridade* camarote;
+    FilaPrioridade* espera;
+    FilaPrioridade* atendidos;
+    int total_dentro;
+    int contador_escalonamento;
+} SistemaShow;
+
+void inicializar_sistema(SistemaShow* s) {
+    s->pista = criar_fila();
+    s->premium = criar_fila();
+    s->camarote = criar_fila();
+    s->espera = criar_fila();
+    s->atendidos = criar_fila();
+    s->total_dentro = 0;
+    s->contador_escalonamento = 0;
+}
+
+void destruir_sistema(SistemaShow* s) {
+    destruir_fila(s->pista);
+    destruir_fila(s->premium);
+    destruir_fila(s->camarote);
+    destruir_fila(s->espera);
+    destruir_fila(s->atendidos);
+}
+
+void adicionar_fa(SistemaShow* s) {
+    char nome[60];
+    int setor, prioridade = 1;
+
+    printf("\nNome do fã: ");
+    fgets(nome, sizeof(nome), stdin);
+    nome[strcspn(nome, "\n")] = '\0';
+
+    printf("Setor: 1=Pista, 2=Premium, 3=Camarote: ");
+    scanf("%d", &setor);
+    getchar();
+
+    switch (setor) {
+        case 1: prioridade = 1; break;
+        case 2: prioridade = 5; break;
+        case 3: prioridade = 10; break;
+        default: printf("Setor inválido.\n"); return;
+    }
+
+    int total_fila = tamanho_fila(s->pista) + tamanho_fila(s->premium) + tamanho_fila(s->camarote);
+
+    if (s->total_dentro + total_fila >= CAPACIDADE_MAX) {
+        inserir(s->espera, nome, prioridade);
+        printf("Capacidade atingida! Fã movido para lista de espera.\n");
+        return;
+    }
+
+    if (setor == 1) inserir(s->pista, nome, prioridade);
+    else if (setor == 2) inserir(s->premium, nome, prioridade);
+    else inserir(s->camarote, nome, prioridade);
+}
+
+void chamar_proximo(SistemaShow* s) {
+    if (s->total_dentro >= CAPACIDADE_MAX) {
+        printf("Capacidade máxima já atingida.\n");
+        return;
+    }
+
+    NoFila* chamado = NULL;
+
+    // Regras de escalonamento: 2 Premium -> 1 Pista -> 1 Camarote (rodando)
+    if (s->contador_escalonamento < 2 && s->premium->inicio != NULL) {
+        chamado = remover(s->premium);
+        s->contador_escalonamento++;
+    } else if (s->pista->inicio != NULL) {
+        chamado = remover(s->pista);
+        s->contador_escalonamento = 0;
+    } else if (s->camarote->inicio != NULL) {
+        chamado = remover(s->camarote);
+    } else {
+        printf("Nenhum fã na fila.\n");
+        return;
+    }
+
+    if (chamado) {
+        printf("Chamando: %s (prioridade %d)\n", chamado->nome, chamado->prioridade);
+        inserir(s->atendidos, chamado->nome, chamado->prioridade);
+        s->total_dentro++;
+        free(chamado);
+    }
+
+    // Se há alguém na lista de espera e ainda cabe
+    if (s->espera->inicio != NULL && s->total_dentro < CAPACIDADE_MAX) {
+        NoFila* da_espera = remover(s->espera);
+        printf("Liberando da lista de espera: %s\n", da_espera->nome);
+        inserir(s->pista, da_espera->nome, da_espera->prioridade);
+        free(da_espera);
+    }
+}
+
+void listar_tudo(SistemaShow* s) {
+    imprimir(s->camarote, "Fila Camarote");
+    imprimir(s->premium, "Fila Premium");
+    imprimir(s->pista, "Fila Pista");
+    imprimir(s->espera, "Lista de Espera");
+    printf("\nTotal dentro do show: %d / %d\n", s->total_dentro, CAPACIDADE_MAX);
+}
+
+void listar_atendidos(SistemaShow* s) {
+    imprimir(s->atendidos, "Histórico de Atendidos");
 }
 
 int main() {
-    FilaPrioridade* fila = criar_fila();
-    int opcao;
-    char nome[60];
-    int prioridade;
+    SistemaShow s;
+    inicializar_sistema(&s);
+    int op;
 
     do {
-        printf("\n===== GERENCIADOR DE FILA - SHOW KATY PERRY =====\n");
-        printf("1 - Inserir fã na fila\n");
-        printf("2 - Chamar proximo fã (remover de maior prioridade)\n");
-        printf("3 - Listar todos os fãs na fila\n");
-        printf("4 - Consultar fã pelo nome\n");
+        printf("\n====== SISTEMA DE FILA - SHOW KATY PERRY ======\n");
+        printf("1 - Adicionar fã à fila\n");
+        printf("2 - Chamar próximo fã\n");
+        printf("3 - Listar todas as filas\n");
+        printf("4 - Consultar fã\n");
+        printf("5 - Ver histórico de atendidos\n");
         printf("0 - Sair\n");
-        printf("Opcao: ");
-        if (scanf("%d", &opcao) != 1) {
-            printf("Entrada invalida.\n");
-            return 1;
-        }
-        getchar(); // consome o '\n' que ficou no buffer
+        printf("Opção: ");
+        scanf("%d", &op);
+        getchar();
 
-        switch (opcao) {
-            case 1:
-                printf("Nome do fã: ");
-                fgets(nome, sizeof(nome), stdin);
-                nome[strcspn(nome, "\n")] = '\0';  // remove o \n do final
-
-                mostrar_legenda_prioridade();
-                printf("Informe a prioridade (numero inteiro): ");
-                if (scanf("%d", &prioridade) != 1) {
-                    printf("Prioridade invalida.\n");
-                    // limpa buffer simples
-                    int c;
-                    while ((c = getchar()) != '\n' && c != EOF);
-                    break;
-                }
-                getchar(); // consome o '\n'
-
-                inserir(fila, nome, prioridade);
-                break;
-
-            case 2:
-                remover(fila);
-                break;
-
-            case 3:
-                imprimir(fila);
-                break;
-
-            case 4:
-                printf("Digite o nome do fã a ser consultado: ");
+        switch (op) {
+            case 1: adicionar_fa(&s); break;
+            case 2: chamar_proximo(&s); break;
+            case 3: listar_tudo(&s); break;
+            case 4: {
+                char nome[60];
+                printf("Nome: ");
                 fgets(nome, sizeof(nome), stdin);
                 nome[strcspn(nome, "\n")] = '\0';
-                consultar(fila, nome);
+                consultar(s.pista, nome);
+                consultar(s.premium, nome);
+                consultar(s.camarote, nome);
                 break;
-
-            case 0:
-                printf("Encerrando sistema da fila do show...\n");
-                break;
-
-            default:
-                printf("Opcao inexistente. Tente novamente.\n");
-                break;
+            }
+            case 5: listar_atendidos(&s); break;
+            case 0: printf("Encerrando...\n"); break;
+            default: printf("Opção inválida.\n");
         }
 
-    } while (opcao != 0);
+    } while (op != 0);
 
-    // (Opcional) Poderia liberar toda a fila aqui percorrendo e dando free.
-
+    destruir_sistema(&s);
     return 0;
 }
