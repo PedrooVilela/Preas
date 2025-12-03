@@ -36,3 +36,4 @@ void destruir_fila(FilaPrioridade* f);
 int tamanho_fila(FilaPrioridade* f);
 
 #endif
+
